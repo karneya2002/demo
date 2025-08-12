@@ -199,7 +199,7 @@ const razorpay = new Razorpay({
 
   // Categories
   app.get('/api/categories', (req, res) => {
-    db.query('SELECT DISTINCT category FROM banquet_halls', (err, results) => {
+    db.query('SELECT DISTINCT categories FROM banquet_halls', (err, results) => {
       if (err) return res.status(500).send(err);
       res.json(results.map(r => r.category));
     });
