@@ -190,31 +190,12 @@ const razorpay = new Razorpay({
 
 
   // ✅ Banquet Endpoints
- app.get('/api/banquets', (req, res) => {
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
-
-  const sql = `
-    SELECT bh.*, GROUP_CONCAT(bi.image_url) AS images
-    FROM banquet_halls bh
-    LEFT JOIN banquet_images bi ON bh.id = bi.banquet_hall_id
-    GROUP BY bh.id
-  `;
-
-  db.query(sql, (err, results) => {
-    if (err) return res.status(500).send(err);
-
-    const updatedResults = results.map(banquet => ({
-      ...banquet,
-      image_url: banquet.image_url ? `${baseUrl}/${banquet.image_url}` : null,
-      images: banquet.images
-        ? banquet.images.split(',').map(img => `${baseUrl}/${img}`)
-        : []
-    }));
-
-    res.json(updatedResults);
+  app.get('/api/banquets', (req, res) => {
+    db.query('SELECT * FROM banquet_halls', (err, results) => {
+      if (err) return res.status(500).send(err);
+      res.json(results);
+    });
   });
-});
-
 
   // Categories
   app.get('/api/categories', (req, res) => {
