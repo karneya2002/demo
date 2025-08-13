@@ -190,7 +190,7 @@ const razorpay = new Razorpay({
 
 
   // ✅ Banquet Endpoints
-  app.get('/api/banquets', (req, res) => {
+  app.get('/api/banquets', (req, res) => {  
     db.query('SELECT * FROM banquet_halls', (err, results) => {
       if (err) return res.status(500).send(err);
       res.json(results);
@@ -215,6 +215,36 @@ const razorpay = new Razorpay({
   });
 
   
+
+
+  app.get("/banquet/:id", async (req, res) => {
+    const hallId = req.params.id;
+
+    try {
+        const [hallRows] = await db.query(
+            "SELECT * FROM banquet_halls WHERE id = ?",
+            [hallId]
+        );
+
+        if (hallRows.length === 0) {
+            return res.status(404).json({ message: "Banquet hall not found" });
+        }
+
+        const [imageRows] = await db.query(
+            "SELECT image_url FROM banquet_images WHERE hall_id = ?",
+            [hallId]
+        );
+
+        const hall = hallRows[0];
+        hall.images = imageRows.map(img => img.image_url);
+
+        res.json(hall);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 
   // Get Booked Dates
   // app.get('/api/bookings', (req, res) => {
