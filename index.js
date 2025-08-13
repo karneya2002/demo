@@ -236,48 +236,55 @@ app.get('/api/banquets', async (req, res) => {
   });
 
   // ✅ Booking Insert
-  app.get('/banquets/:id', (req, res) => {
-    const { id } = req.params;
-    db.query('SELECT * FROM banquet_halls WHERE id = ?', [id], (err, result) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json(result[0]);
-    });
-  });
+  // app.get('/banquets/:id', (req, res) => {
+  //   const { id } = req.params;
+  //   db.query('SELECT * FROM banquet_halls WHERE id = ?', [id], (err, result) => {
+  //     if (err) return res.status(500).json({ error: err });
+  //     res.json(result[0]);
+  //   });
+  // });
 
   
 
 
-app.get("/banquet/:id", async (req, res) => {
+// ✅ Single banquet with images[]
+app.get('/banquet/:id', async (req, res) => {
   const hallId = req.params.id;
 
   try {
-    const [hallRows] = await db.query(
-      "SELECT * FROM banquet_halls WHERE id = ?",
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+
+    const [hallRows] = await dbp.query(
+      'SELECT * FROM banquet_halls WHERE id = ?',
       [hallId]
     );
 
     if (hallRows.length === 0) {
-      return res.status(404).json({ message: "Banquet hall not found" });
+      return res.status(404).json({ success: false, message: 'Banquet hall not found' });
     }
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-
-    const [imageRows] = await db.query(
-      "SELECT image_url FROM banquet_images WHERE banquet_hall_id = ?",
+    const [imageRows] = await dbp.query(
+      'SELECT image_url FROM banquet_images WHERE banquet_hall_id = ?',
       [hallId]
     );
 
     const hall = hallRows[0];
-    hall.images = imageRows.map(img =>
-      img.image_url.startsWith("http")
-        ? img.image_url
-        : `${baseUrl}/${img.image_url}`
+
+    const images = imageRows.map(r =>
+      r.image_url?.startsWith('http') ? r.image_url : `${baseUrl}/${r.image_url}`
     );
+
+    hall.images = images;
+    hall.image_url =
+      images[0] ||
+      (hall.image_url
+        ? (String(hall.image_url).startsWith('http') ? hall.image_url : `${baseUrl}/${hall.image_url}`)
+        : null);
 
     res.json(hall);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
