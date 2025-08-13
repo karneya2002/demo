@@ -14,7 +14,7 @@
   const app = express();
   app.use(cors());
   app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static('uploads'));
   // app.use('/uploads', express.static('uploads'));
 
 
@@ -193,24 +193,25 @@ const razorpay = new Razorpay({
 });
 
 
-  // ✅ Banquet Endpoints
-  app.get('/api/banquets', (req, res) => {
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
 
+
+app.get('/api/banquets', (req, res) => {
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  
   db.query('SELECT * FROM banquet_halls', (err, results) => {
     if (err) return res.status(500).send(err);
 
-    // Add full URL to image
     const updatedResults = results.map(banquet => ({
       ...banquet,
-      image_url: banquet.image_url
-        ? `${baseUrl}/${banquet.image_url}`
-        : null
+      image_url: banquet.image_url?.startsWith('http')
+        ? banquet.image_url
+        : `${baseUrl}/${banquet.image_url}`
     }));
 
     res.json(updatedResults);
   });
 });
+
 
 // ✅ Categories API
 app.get('/api/categories', (req, res) => {
