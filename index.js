@@ -200,24 +200,26 @@ const razorpay = new Razorpay({
   db.query('SELECT * FROM banquet_halls', (err, results) => {
     if (err) return res.status(500).send(err);
 
-    // Map image_url to full path
+    // Add full URL to image
     const updatedResults = results.map(banquet => ({
       ...banquet,
-      image_url: `${baseUrl}/${banquet.image_url}`
+      image_url: banquet.image_url
+        ? `${baseUrl}/${banquet.image_url}`
+        : null
     }));
 
     res.json(updatedResults);
   });
 });
 
-
-  // Categories
-  app.get('/api/categories', (req, res) => {
-    db.query('SELECT DISTINCT category FROM banquet_halls', (err, results) => {
-      if (err) return res.status(500).send(err);
-      res.json(results.map(r => r.category));
-    });
+// ✅ Categories API
+app.get('/api/categories', (req, res) => {
+  db.query('SELECT DISTINCT category FROM banquet_halls', (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results.map(r => r.category));
   });
+});
+
 
   // ✅ Booking Insert
   app.get('/banquets/:id', (req, res) => {
