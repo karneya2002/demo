@@ -190,12 +190,42 @@ const razorpay = new Razorpay({
 
 
   // ✅ Banquet Endpoints
-  app.get('/api/banquets', (req, res) => {  
-    db.query('SELECT * FROM banquet_halls', (err, results) => {
-      if (err) return res.status(500).send(err);
-      res.json(results);
+  // ✅ Get all banquets with their images[] (full URLs)
+app.get('/api/banquets', async (req, res) => {
+  try {
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const [rows] = await dbp.query(`
+      SELECT bh.*,
+             GROUP_CONCAT(bi.image_url ORDER BY bi.id SEPARATOR ',') AS images
+      FROM banquet_halls bh
+      LEFT JOIN banquet_images bi
+        ON bh.id = bi.banquet_hall_id
+      GROUP BY bh.id
+    `);
+
+    const out = rows.map(h => {
+      const images = h.images
+        ? h.images.split(',').map(u => (u.startsWith('http') ? u : `${baseUrl}/${u}`))
+        : [];
+
+      const primary =
+        images[0] ||
+        (h.image_url ? (String(h.image_url).startsWith('http') ? h.image_url : `${baseUrl}/${h.image_url}`) : null);
+
+      return {
+        ...h,
+        image_url: primary,  // keep compatibility for list cards
+        images,              // full gallery for the detail screen
+      };
     });
-  });
+
+    res.json(out);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ success: false, message: 'Failed to fetch banquets' });
+  }
+});
+
 
   // Categories
   app.get('/api/categories', (req, res) => {
