@@ -194,7 +194,7 @@ const razorpay = new Razorpay({
 app.get('/api/banquets', async (req, res) => {
   try {
     const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const [rows] = await dbp.query(`
+    const [rows] = await db.query(`
       SELECT bh.*,
              GROUP_CONCAT(bi.image_url ORDER BY bi.id SEPARATOR ',') AS images
       FROM banquet_halls bh
