@@ -315,7 +315,7 @@ app.post('/api/book-now', async (req, res) => {
     }
 
     const insertQuery = `
-      INSERT INTO bookings (hall_id, name, phone, email, event_type, address, booking_dates, total_price)
+      INSERT INTO bookings (hall_id, name, phone, email, event_type, address, dates, total_price)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
@@ -775,6 +775,42 @@ app.post('/api/verify-email-otp', async (req, res) => {
   }
 });
 
+// GET booked dates by mahal_name
+app.get('/api/booked-dates/:mahalName', (req, res) => {
+  const { mahalName } = req.params;
+
+  // Fetch 'dates' from rows where mahal_name matches
+  const query = 'SELECT dates FROM bookings WHERE mahal_name = ?';
+
+  db.query(query, [mahalName], (err, results) => {
+    if (err) {
+      console.error('Error fetching booked dates:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Database error while fetching booked dates',
+      });
+    }
+
+    if (!results.length) {
+      return res.status(200).json({
+        success: true,
+        bookedDates: [],
+      });
+    }
+
+    // Flatten and clean up dates
+    const bookedDates = results
+      .flatMap(row => row.dates.split(',').map(date => date.trim()))
+      .filter(date => date); // remove empty strings
+
+    const uniqueDates = [...new Set(bookedDates)];
+
+    res.json({
+      success: true,
+      bookedDates: uniqueDates,
+    });
+  });
+});
 
 
 
