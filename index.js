@@ -1,4 +1,4 @@
-  // 📁 server.js
+// 📁 server.js
   const express = require('express');
   const mysql = require('mysql2');
   const cors = require('cors');
@@ -7,16 +7,12 @@
   const dotenv = require('dotenv');
   dotenv.config();
   const Razorpay = require('razorpay');
-
-
   const app = express();
   app.use(cors());
   app.use(express.json());
   app.use('/uploads', express.static('uploads'));
-
-
   const crypto = require('crypto');
-const axios = require('axios');
+  const axios = require('axios');
 
 
   // ✅ MySQL Connection Pool
@@ -102,7 +98,7 @@ const razorpay = new Razorpay({
             from: process.env.EMAIL_USER,
             to: email,
             subject: 'Your OTP - KUMBAM',
-            text: `Your OTP is ${otp}`,
+            text: `Welcome to book the mahal in a easy way ${otp}`,
           }, (err) => {
             if (err) return res.json({ success: false });
             res.json({ success: true, token: otp, phone: user.phone, username: user.full_name });
@@ -137,12 +133,12 @@ const razorpay = new Razorpay({
         from: process.env.EMAIL_USER,
         to: email,
         subject: 'Your KUMBAM Password Reset OTP',
-        text: `Your OTP is ${otp}`,
+        text: `Your OTP to reset paassword is ${otp}`,
       }, (err) => {
         if (err) return res.json({ success: false });
         res.json({ success: true });
       });
-    });
+    });6.
   });
 
   app.post('/api/reset-password', async (req, res) => {
@@ -179,7 +175,7 @@ const razorpay = new Razorpay({
         from: process.env.EMAIL_USER,
         to: email,
         subject: 'Resend OTP - KUMBAM',
-        text: `Your OTP is ${otp}`,
+        text: `Your Resend OTP valid for few mintues is ${otp}`,
       }, (err) => {
         if (err) return res.status(500).json({ success: false, message: 'Failed to send OTP' });
         res.json({ success: true, message: 'OTP sent successfully' });
@@ -188,14 +184,84 @@ const razorpay = new Razorpay({
   );
 });
 
+app.post('/api/banquets', (req, res) => {
+  const { name, category, address, capacity, price, description, images } = req.body;
+
+  // Insert banquet hall
+  const hallSql = `INSERT INTO banquet_halls (name, category, address, capacity, price, description) VALUES (?, ?, ?, ?, ?, ?)`;
+  db.query(hallSql, [name, category, address, capacity, price, description], (err, hallResult) => {
+    if (err) return res.status(500).send(err);
+
+    const banquetId = hallResult.insertId;
+
+    // Insert images if provided
+    if (images && images.length > 0) {
+      const imageValues = images.map(url => [banquetId, url]);
+      db.query(`INSERT INTO banquet_images (banquet_id, image_url) VALUES ?`, [imageValues], (imgErr) => {
+        if (imgErr) return res.status(500).send(imgErr);
+        res.json({ message: 'Banquet added successfully', banquetId });
+      });
+    } else {
+      res.json({ message: 'Banquet added without images', banquetId });
+    }
+  });
+});
+
+// ✅ Fetch single banquet hall with multiple images
+app.get('/api/banquet/:id', (req, res) => {
+  const banquetId = req.params.id;
+
+  const sql = `
+    SELECT b.*, GROUP_CONCAT(i.image_url) AS images
+    FROM banquet_halls b
+    LEFT JOIN banquet_images i ON b.id = i.banquet_id
+    WHERE b.id = ?
+    GROUP BY b.id
+  `;
+
+  db.query(sql, [banquetId], (err, results) => {
+    if (err) return res.status(500).send(err);
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Banquet not found' });
+    }
+
+    const banquet = {
+      ...results[0],
+      images: results[0].images ? results[0].images.split(',') : []
+    };
+
+    res.json(banquet);
+  });
+});
+
+
+
 
   // ✅ Banquet Endpoints
-  app.get('/api/banquets', (req, res) => {
-    db.query('SELECT * FROM banquet_halls', (err, results) => {
-      if (err) return res.status(500).send(err);
-      res.json(results);
-    });
+// Fetch all banquet halls
+// ✅ Fetch all banquet halls with multiple images
+app.get('/api/banquets', (req, res) => {
+  const sql = `
+    SELECT b.*, GROUP_CONCAT(i.image_url) AS images
+    FROM banquet_halls b
+    LEFT JOIN banquet_images i ON b.id = i.banquet_id
+    GROUP BY b.id
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).send(err);
+
+    // Convert comma-separated images into an array
+    const formatted = results.map(row => ({
+      ...row,
+      images: row.images ? row.images.split(',') : []
+    }));
+
+    res.json(formatted);
   });
+});
+
 
   // Categories
   app.get('/api/categories', (req, res) => {
@@ -216,76 +282,7 @@ const razorpay = new Razorpay({
 
   
 
-  // Get Booked Dates
-  // app.get('/api/bookings', (req, res) => {
-  //   const { mahalId, month, year } = req.query;
-  //   const start = `${year}-${month.padStart(2, '0')}-01`;
-  //   const end = `${year}-${month.padStart(2, '0')}-31`;
-
-  //   db.query(
-  //     `SELECT booked_date FROM bookings WHERE mahal_id = ? AND booked_date BETWEEN ? AND ?`,
-  //     [mahalId, start, end],
-  //     (err, result) => {
-  //       if (err) return res.status(500).json({ error: err });
-  //       res.json(result.map(r => r.booked_date));
-  //     }
-  //   );
-  // });
-
-  // // Post Booking
-  // app.post('/api/bookings', (req, res) => {
-  //   const { mahalId, userId, dates } = req.body;
-  //   const insertValues = dates.map(date => [userId, mahalId, date]);
-
-  //   db.query(
-  //     'INSERT INTO bookings (user_id, mahal_id, booked_date) VALUES ?',
-  //     [insertValues],
-  //     (err, result) => {
-  //       if (err) return res.status(500).json({ error: err });
-  //       res.json({ success: true, message: 'Booking confirmed' });
-  //     }
-  //   );
-  // });
-
-//   app.post('/api/initiate-payment', (req, res) => {
-//   const { hallId, hallName, amount, selectedDates } = req.body;
-
-//   if (!hallId || !amount || !hallName || !selectedDates) {
-//     return res.status(400).json({ success: false, message: 'Missing required fields.' });
-//   }
-
-//   const transactionId = `TXN_${Date.now()}`;
-//   const merchantId = process.env.PHONEPE_CLIENT_ID;
-//   const saltKey = process.env.PHONEPE_CLIENT_SECRET;
-//   const callbackUrl = process.env.CALLBACK_URL;
-
-//   const payload = {
-//     merchantId,
-//     merchantTransactionId: transactionId,
-//     merchantUserId: `USER_${hallId}`,
-//     amount: parseInt(amount * 100),
-//     redirectUrl: callbackUrl,
-//     redirectMode: 'POST',
-//     callbackUrl,
-//     paymentInstrument: {
-//       type: 'UPI_INTENT',
-//     },
-//   };
-
-//   const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64');
-//   const xVerify = crypto
-//     .createHash('sha256')
-//     .update(base64Payload + '/pg/v1/pay' + saltKey)
-//     .digest('hex') + '###1';
-
-//   const upiUrl = `upi://pay?pa=phonepe@upi&pn=${hallName}&tid=${transactionId}&tr=${transactionId}&am=${amount}&cu=INR`;
-
-//   res.json({
-//     success: true,
-//     paymentUrl: upiUrl,
-//     transactionId,
-//   });
-// });
+;
 
   // ✅ Book Now Endpoint
 app.post('/api/book-now', async (req, res) => {
@@ -492,28 +489,28 @@ app.get('/api/muhurtham-2025/:id', (req, res) => {
 
 
 // 📆 Get Booked Dates by Hall, Month & Year
-app.get('/api/booked-dates/:hallId/:month/:year', (req, res) => {
-  const { hallId, month, year } = req.params;
+// app.get('/api/booked-dates/:hallId/:month/:year', (req, res) => {
+//   const { hallId, month, year } = req.params;
 
-  if (!hallId || !month || !year) {
-    return res.status(400).json({ success: false, message: 'Missing hallId, month, or year' });
-  }
+//   if (!hallId || !month || !year) {
+//     return res.status(400).json({ success: false, message: 'Missing hallId, month, or year' });
+//   }
 
-  const startDate = `${year}-${month.padStart(2, '0')}-01`;
-  const endDate = `${year}-${month.padStart(2, '0')}-31`;
+//   const startDate = `${year}-${month.padStart(2, '0')}-01`;
+//   const endDate = `${year}-${month.padStart(2, '0')}-31`;
 
-  const query = `
-    SELECT booking_dates FROM bookings 
-    WHERE hall_id = ? AND booking_dates BETWEEN ? AND ?
-  `;
+//   const query = `
+//     SELECT booking_dates FROM bookings 
+//     WHERE hall_id = ? AND booking_dates BETWEEN ? AND ?
+//   `;
 
-  db.query(query, [hallId, startDate, endDate], (err, results) => {
-    if (err) return res.status(500).json({ success: false, message: 'DB error' });
+//   db.query(query, [hallId, startDate, endDate], (err, results) => {
+//     if (err) return res.status(500).json({ success: false, message: 'DB error' });
 
-    const booked = results.flatMap(row => row.booking_dates.split(',').map(d => d.trim()));
-    res.json({ success: true, bookedDates: [...new Set(booked)] });
-  });
-});
+//     const booked = results.flatMap(row => row.booking_dates.split(',').map(d => d.trim()));
+//     res.json({ success: true, bookedDates: [...new Set(booked)] });
+//   });
+// });
 
 
 app.use('/api/initiate-payment', async (req, res) => {
