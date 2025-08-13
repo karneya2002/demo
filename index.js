@@ -7,16 +7,12 @@
   const dotenv = require('dotenv');
   dotenv.config();
   const Razorpay = require('razorpay');
-  
-  const path = require('path');
 
 
   const app = express();
   app.use(cors());
   app.use(express.json());
-app.use('/uploads', express.static('uploads'));
-  // app.use('/uploads', express.static('uploads'));
-
+  app.use('/uploads', express.static('uploads'));
 
 
   const crypto = require('crypto');
@@ -193,34 +189,21 @@ const razorpay = new Razorpay({
 });
 
 
-
-
-app.get('/api/banquets', (req, res) => {
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
-  
-  db.query('SELECT * FROM banquet_halls', (err, results) => {
-    if (err) return res.status(500).send(err);
-
-    const updatedResults = results.map(banquet => ({
-      ...banquet,
-      image_url: banquet.image_url?.startsWith('http')
-        ? banquet.image_url
-        : `${baseUrl}/${banquet.image_url}`
-    }));
-
-    res.json(updatedResults);
+  // ✅ Banquet Endpoints
+  app.get('/api/banquets', (req, res) => {
+    db.query('SELECT * FROM banquet_halls', (err, results) => {
+      if (err) return res.status(500).send(err);
+      res.json(results);
+    });
   });
-});
 
-
-// ✅ Categories API
-app.get('/api/categories', (req, res) => {
-  db.query('SELECT DISTINCT category FROM banquet_halls', (err, results) => {
-    if (err) return res.status(500).send(err);
-    res.json(results.map(r => r.category));
+  // Categories
+  app.get('/api/categories', (req, res) => {
+    db.query('SELECT DISTINCT category FROM banquet_halls', (err, results) => {
+      if (err) return res.status(500).send(err);
+      res.json(results.map(r => r.category));
+    });
   });
-});
-
 
   // ✅ Booking Insert
   app.get('/banquets/:id', (req, res) => {
