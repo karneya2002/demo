@@ -190,42 +190,12 @@ const razorpay = new Razorpay({
 
 
   // ✅ Banquet Endpoints
-  // ✅ Get all banquets with their images[] (full URLs)
-app.get('/api/banquets', async (req, res) => {
-  try {
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const [rows] = await db.query(`
-      SELECT bh.*,
-             GROUP_CONCAT(bi.image_url ORDER BY bi.id SEPARATOR ',') AS images
-      FROM banquet_halls bh
-      LEFT JOIN banquet_images bi
-        ON bh.id = bi.banquet_hall_id
-      GROUP BY bh.id
-    `);
-
-    const out = rows.map(h => {
-      const images = h.images
-        ? h.images.split(',').map(u => (u.startsWith('http') ? u : `${baseUrl}/${u}`))
-        : [];
-
-      const primary =
-        images[0] ||
-        (h.image_url ? (String(h.image_url).startsWith('http') ? h.image_url : `${baseUrl}/${h.image_url}`) : null);
-
-      return {
-        ...h,
-        image_url: primary,  // keep compatibility for list cards
-        images,              // full gallery for the detail screen
-      };
+  app.get('/api/banquets', (req, res) => {
+    db.query('SELECT * FROM banquet_halls', (err, results) => {
+      if (err) return res.status(500).send(err);
+      res.json(results);
     });
-
-    res.json(out);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ success: false, message: 'Failed to fetch banquets' });
-  }
-});
-
+  });
 
   // Categories
   app.get('/api/categories', (req, res) => {
@@ -236,57 +206,15 @@ app.get('/api/banquets', async (req, res) => {
   });
 
   // ✅ Booking Insert
-  // app.get('/banquets/:id', (req, res) => {
-  //   const { id } = req.params;
-  //   db.query('SELECT * FROM banquet_halls WHERE id = ?', [id], (err, result) => {
-  //     if (err) return res.status(500).json({ error: err });
-  //     res.json(result[0]);
-  //   });
-  // });
+  app.get('/banquets/:id', (req, res) => {
+    const { id } = req.params;
+    db.query('SELECT * FROM banquet_halls WHERE id = ?', [id], (err, result) => {
+      if (err) return res.status(500).json({ error: err });
+      res.json(result[0]);
+    });
+  });
 
   
-
-
-// ✅ Single banquet with images[]
-app.get('/banquet/:id', async (req, res) => {
-  const hallId = req.params.id;
-
-  try {
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-
-    const [hallRows] = await dbp.query(
-      'SELECT * FROM banquet_halls WHERE id = ?',
-      [hallId]
-    );
-
-    if (hallRows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Banquet hall not found' });
-    }
-
-    const [imageRows] = await dbp.query(
-      'SELECT image_url FROM banquet_images WHERE banquet_hall_id = ?',
-      [hallId]
-    );
-
-    const hall = hallRows[0];
-
-    const images = imageRows.map(r =>
-      r.image_url?.startsWith('http') ? r.image_url : `${baseUrl}/${r.image_url}`
-    );
-
-    hall.images = images;
-    hall.image_url =
-      images[0] ||
-      (hall.image_url
-        ? (String(hall.image_url).startsWith('http') ? hall.image_url : `${baseUrl}/${hall.image_url}`)
-        : null);
-
-    res.json(hall);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-});
 
   // Get Booked Dates
   // app.get('/api/bookings', (req, res) => {
