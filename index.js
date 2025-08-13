@@ -188,55 +188,14 @@ const razorpay = new Razorpay({
   );
 });
 
-app.post('/api/banquets', (req, res) => {
-  const { name, category, address, capacity, price, description, images } = req.body;
-
-  // Insert banquet hall
-  const hallSql = `INSERT INTO banquet_halls (name, category, address, capacity, price, description) VALUES (?, ?, ?, ?, ?, ?)`;
-  db.query(hallSql, [name, category, address, capacity, price, description], (err, hallResult) => {
-    if (err) return res.status(500).send(err);
-
-    const banquetId = hallResult.insertId;
-
-    // Insert images if provided
-    if (images && images.length > 0) {
-      const imageValues = images.map(url => [banquetId, url]);
-      db.query(`INSERT INTO banquet_images (banquet_id, image_url) VALUES ?`, [imageValues], (imgErr) => {
-        if (imgErr) return res.status(500).send(imgErr);
-        res.json({ message: 'Banquet added successfully', banquetId });
-      });
-    } else {
-      res.json({ message: 'Banquet added without images', banquetId });
-    }
-  });
-});
-
-
 
   // ✅ Banquet Endpoints
-// Fetch all banquet halls
-// ✅ Fetch all banquet halls with multiple images
-app.get('/api/banquets', (req, res) => {
-  const sql = `
-    SELECT b.*, GROUP_CONCAT(i.image_url) AS images
-    FROM banquet_halls b
-    LEFT JOIN banquet_images i ON b.id = i.banquet_id
-    GROUP BY b.id
-  `;
-
-  db.query(sql, (err, results) => {
-    if (err) return res.status(500).send(err);
-
-    // Convert comma-separated images into an array
-    const formatted = results.map(row => ({
-      ...row,
-      images: row.images ? row.images.split(',') : []
-    }));
-
-    res.json(formatted);
+  app.get('/api/banquets', (req, res) => {
+    db.query('SELECT * FROM banquet_halls', (err, results) => {
+      if (err) return res.status(500).send(err);
+      res.json(results);
+    });
   });
-});
-
 
   // Categories
   app.get('/api/categories', (req, res) => {
