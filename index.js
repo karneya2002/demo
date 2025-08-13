@@ -217,34 +217,39 @@ const razorpay = new Razorpay({
   
 
 
-  app.get("/banquet/:id", async (req, res) => {
-    const hallId = req.params.id;
+app.get("/banquet/:id", async (req, res) => {
+  const hallId = req.params.id;
 
-    try {
-        const [hallRows] = await db.query(
-            "SELECT * FROM banquet_halls WHERE id = ?",
-            [hallId]
-        );
+  try {
+    const [hallRows] = await db.query(
+      "SELECT * FROM banquet_halls WHERE id = ?",
+      [hallId]
+    );
 
-        if (hallRows.length === 0) {
-            return res.status(404).json({ message: "Banquet hall not found" });
-        }
-
-        const [imageRows] = await db.query(
-            "SELECT image_url FROM banquet_images WHERE hall_id = ?",
-            [hallId]
-        );
-
-        const hall = hallRows[0];
-        hall.images = imageRows.map(img => img.image_url);
-
-        res.json(hall);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error" });
+    if (hallRows.length === 0) {
+      return res.status(404).json({ message: "Banquet hall not found" });
     }
-});
 
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+    const [imageRows] = await db.query(
+      "SELECT image_url FROM banquet_images WHERE banquet_hall_id = ?",
+      [hallId]
+    );
+
+    const hall = hallRows[0];
+    hall.images = imageRows.map(img =>
+      img.image_url.startsWith("http")
+        ? img.image_url
+        : `${baseUrl}/${img.image_url}`
+    );
+
+    res.json(hall);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
   // Get Booked Dates
   // app.get('/api/bookings', (req, res) => {
