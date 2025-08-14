@@ -776,13 +776,12 @@ app.post('/api/verify-email-otp', async (req, res) => {
 });
 
 // GET booked dates by mahal_name
-app.get('/api/booked-dates/:mahalName', (req, res) => {
-  const { mahalName } = req.params;
+app.get('/api/booked-dates/:hallId', (req, res) => {
+  const { hallId } = req.params;
 
-  // Fetch 'dates' from rows where mahal_name matches
-  const query = 'SELECT dates FROM bookings WHERE mahal_name = ?';
+  const query = 'SELECT dates FROM bookings WHERE hall_id = ?';
 
-  db.query(query, [mahalName], (err, results) => {
+  db.query(query, [hallId], (err, results) => {
     if (err) {
       console.error('Error fetching booked dates:', err);
       return res.status(500).json({
@@ -798,6 +797,18 @@ app.get('/api/booked-dates/:mahalName', (req, res) => {
       });
     }
 
+    const bookedDates = results
+      .map(row => row.dates)
+      .flat(); // in case dates are stored as arrays or CSV strings
+
+    res.status(200).json({
+      success: true,
+      bookedDates,
+    });
+  });
+});
+
+
     // Flatten and clean up dates
     const bookedDates = results
       .flatMap(row => row.dates.split(',').map(date => date.trim()))
@@ -809,8 +820,8 @@ app.get('/api/booked-dates/:mahalName', (req, res) => {
       success: true,
       bookedDates: uniqueDates,
     });
-  });
-});
+  
+
 
 
 
