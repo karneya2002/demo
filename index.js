@@ -790,16 +790,26 @@ app.get('/api/booked-dates/:hallId', (req, res) => {
       });
     }
 
-    if (!results.length) {
+    if (!results || results.length === 0) {
       return res.status(200).json({
         success: true,
         bookedDates: [],
       });
     }
 
+    // If dates are stored as JSON strings or comma-separated values, parse them
     const bookedDates = results
-      .map(row => row.dates)
-      .flat(); // in case dates are stored as arrays or CSV strings
+      .map(row => {
+        if (typeof row.dates === 'string') {
+          try {
+            return JSON.parse(row.dates);
+          } catch {
+            return row.dates.split(',').map(date => date.trim());
+          }
+        }
+        return row.dates;
+      })
+      .flat();
 
     res.status(200).json({
       success: true,
