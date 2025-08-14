@@ -270,7 +270,7 @@ app.get('/api/categories', (req, res) => {
 
 
   // Booking Endpoint:
-  app.post('/api/book-now', async (req, res) => {
+ app.post('/api/book-now', async (req, res) => {
   const { hallId, name, phone, email, eventType, address, dates, totalPrice } = req.body;
 
   if (!hallId || !name || !phone || !email || !eventType || !address || !dates || !totalPrice) {
@@ -289,10 +289,10 @@ app.get('/api/categories', (req, res) => {
 
   const dateList = Array.isArray(dates) ? dates : dates.split(',').map(d => d.trim());
 
-  // Check for conflicts
+  // 🔍 Check for conflicts
   const checkQuery = `SELECT dates FROM bookings WHERE hall_id = ?`;
   db.query(checkQuery, [hallId], async (checkErr, rows) => {
-    if (checkErr) return res.status(500).json({ success: false, message: 'Server error checking existing bookings.' });
+    if (checkErr) return res.status(500).json({ success: false, message: 'Error checking existing bookings.' });
 
     const existingDates = rows
       .map(r => {
@@ -309,7 +309,7 @@ app.get('/api/categories', (req, res) => {
       return res.status(409).json({ success: false, message: 'Selected date(s) already booked.' });
     }
 
-    // Insert booking
+    // 📝 Insert booking
     const insertQuery = `
       INSERT INTO bookings (hall_id, name, phone, email, event_type, address, dates, total_price)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -317,7 +317,7 @@ app.get('/api/categories', (req, res) => {
     db.query(insertQuery, [hallId, name, phone, email, eventType, address, JSON.stringify(dateList), totalPrice], async (insertErr, result) => {
       if (insertErr) return res.status(500).json({ success: false, message: 'Failed to save booking.' });
 
-      // Send confirmation email
+      // 📧 Send confirmation email
       try {
         await transporter.sendMail({
           from: process.env.EMAIL_USER,
@@ -337,6 +337,39 @@ app.get('/api/categories', (req, res) => {
     });
   });
 });
+
+
+app.get('/api/booked-dates/:hallId', (req, res) => {
+  const { hallId } = req.params;
+
+  const query = 'SELECT dates FROM bookings WHERE hall_id = ?';
+  db.query(query, [hallId], (err, results) => {
+    if (err) {
+      console.error('Error fetching booked dates:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Database error while fetching booked dates',
+      });
+    }
+
+    const bookedDates = results
+      .map(row => {
+        try {
+          return JSON.parse(row.dates);
+        } catch {
+          return row.dates.split(',').map(d => d.trim());
+        }
+      })
+      .flat();
+
+    res.status(200).json({
+      success: true,
+      bookedDates,
+    });
+  });
+});
+
+
 
 // Filter available halls for a given date
 
