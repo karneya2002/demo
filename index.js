@@ -272,73 +272,150 @@ app.get('/api/categories', (req, res) => {
   // Booking Endpoint:
 app.post('/api/book-now', async (req, res) => {
   try {
-    const { banquetId, name, phone, email, eventType, address, price, dates, bookingDate } = req.body;
+    const {
+      banquetId,
+      name,
+      phone,
+      email,
+      eventType,
+      address,
+      price,
+      dates,
+      bookingDate
+    } = req.body;
 
-    // Required fields check (mahalName, location removed)
-    if (!banquetId || !name || !phone || !email || !eventType || !address || !price || !dates) {
-      return res.status(400).json({ success: false, message: 'Please fill all required fields.' });
+    // 1️⃣ Check required fields & tell which is missing
+    const requiredFields = {
+      banquetId,
+      name,
+      phone,
+      email,
+      eventType,
+      address,
+      price,
+      dates
+    };
+
+    for (const [key, value] of Object.entries(requiredFields)) {
+      if (
+        value === undefined ||
+        value === null ||
+        (typeof value === 'string' && !value.trim()) ||
+        (Array.isArray(value) && value.length === 0)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: `Missing required field: ${key}`
+        });
+      }
     }
 
-    // Fetch mahalName & location automatically from banquet_halls
+    // 2️⃣ Fetch mahalName & location from DB
     const [hall] = await new Promise((resolve, reject) => {
-      db.query('SELECT name AS mahalName, location FROM banquet_halls WHERE id = ?', [banquetId], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
+      db.query(
+        'SELECT name AS mahalName, location FROM banquet_halls WHERE id = ?',
+        [banquetId],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
     });
 
     if (!hall) {
-      return res.status(404).json({ success: false, message: 'Banquet hall not found.' });
+      return res.status(404).json({
+        success: false,
+        message: 'Banquet hall not found.'
+      });
     }
 
     const mahalName = hall.mahalName;
     const location = hall.location;
 
-    // Phone validation
+    // 3️⃣ Phone validation
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(String(phone))) {
-      return res.status(400).json({ success: false, message: 'Invalid phone number.' });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid phone number. Must be 10 digits starting with 6-9.'
+      });
     }
 
-    // Email validation
+    // 4️⃣ Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(String(email))) {
-      return res.status(400).json({ success: false, message: 'Invalid email format.' });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format.'
+      });
     }
 
-    // Normalize dates
+    // 5️⃣ Normalize dates
     const dateList = Array.isArray(dates)
       ? dates.map(d => String(d).trim()).filter(Boolean)
       : String(dates).split(',').map(d => d.trim()).filter(Boolean);
 
     if (dateList.length === 0) {
-      return res.status(400).json({ success: false, message: 'At least one date is required.' });
+      return res.status(400).json({
+        success: false,
+        message: 'At least one booking date is required.'
+      });
     }
 
-    // Check if any date is already booked
+    // 6️⃣ Check if dates are already booked
     const existingDates = await new Promise((resolve, reject) => {
-      db.query('SELECT dates FROM bookings WHERE banquet_id = ?', [banquetId], (err, rows) => {
-        if (err) reject(err);
-        else {
-          resolve(rows.flatMap(r => {
-            try { return JSON.parse(r.dates); }
-            catch { return String(r.dates || '').split(',').map(s => s.trim()).filter(Boolean); }
-          }));
+      db.query(
+        'SELECT dates FROM bookings WHERE banquet_id = ?',
+        [banquetId],
+        (err, rows) => {
+          if (err) reject(err);
+          else {
+            resolve(
+              rows.flatMap(r => {
+                try {
+                  return JSON.parse(r.dates);
+                } catch {
+                  return String(r.dates || '')
+                    .split(',')
+                    .map(s => s.trim())
+                    .filter(Boolean);
+                }
+              })
+            );
+          }
         }
-      });
+      );
     });
 
-    if (dateList.some(d => existingDates.includes(d))) {
-      return res.status(409).json({ success: false, message: 'Selected date(s) already booked.' });
+    const alreadyBooked = dateList.filter(d => existingDates.includes(d));
+    if (alreadyBooked.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `These dates are already booked: ${alreadyBooked.join(', ')}`
+      });
     }
 
-    // Insert booking
+    // 7️⃣ Insert booking
     await new Promise((resolve, reject) => {
-      db.query(`
+      db.query(
+        `
         INSERT INTO bookings 
-        (name, phone, event_type, address, mahal_name, location, price, dates, booking_date, status, banquet_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
-        [name, phone, eventType, address, mahalName, location, Number(price), JSON.stringify(dateList), bookingDate || null, banquetId],
+        (name, phone, event_type, address, mahal_name, location, price, dates, booking_date, status, banquet_id, email)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+        `,
+        [
+          name.trim(),
+          phone.trim(),
+          eventType.trim(),
+          address.trim(),
+          mahalName,
+          location,
+          Number(price),
+          JSON.stringify(dateList),
+          bookingDate || null,
+          banquetId,
+          email.trim()
+        ],
         (err, result) => {
           if (err) reject(err);
           else resolve(result);
@@ -346,13 +423,21 @@ app.post('/api/book-now', async (req, res) => {
       );
     });
 
-    return res.status(200).json({ success: true, message: 'Booking successful' });
+    // 8️⃣ Success response
+    return res.status(200).json({
+      success: true,
+      message: 'Booking successful'
+    });
 
   } catch (e) {
     console.error('book-now error:', e);
-    return res.status(500).json({ success: false, message: 'Server error.' });
+    return res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
   }
 });
+
 
 
 
