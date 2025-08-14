@@ -382,17 +382,12 @@ app.post('/api/book-now', async (req, res) => {
 
 
 
+app.get('/api/booked-dates/:hallId', (req, res) => {
+  const { hallId } = req.params;
 
-app.get('/api/booked-dates/:banquetId', (req, res) => {
-  const { banquetId } = req.params;
+  const query = 'SELECT booking_date FROM bookings WHERE banquet_id = ?';
 
-  if (!banquetId) {
-    return res.status(400).json({ success: false, message: 'banquetId is required' });
-  }
-
-  const query = 'SELECT dates FROM bookings WHERE banquet_id = ?';
-
-  db.query(query, [banquetId], (err, results) => {
+  db.query(query, [hallId], (err, results) => {
     if (err) {
       console.error('Error fetching booked dates:', err);
       return res.status(500).json({
@@ -401,7 +396,6 @@ app.get('/api/booked-dates/:banquetId', (req, res) => {
       });
     }
 
-    // If no bookings found
     if (!results.length) {
       return res.status(200).json({
         success: true,
@@ -409,21 +403,19 @@ app.get('/api/booked-dates/:banquetId', (req, res) => {
       });
     }
 
-    // Merge all booked dates into one array
+    // Merge all booked dates into a single flat array
     const bookedDates = results.flatMap(row => {
       try {
-        // Try parsing JSON stored in `dates` column
-        return JSON.parse(row.dates);
+        return JSON.parse(row.dates); // if stored as JSON
       } catch {
-        // Fallback if stored as CSV string
         return String(row.dates || '')
           .split(',')
-          .map(s => s.trim())
+          .map(d => d.trim())
           .filter(Boolean);
       }
     });
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       bookedDates,
     });
