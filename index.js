@@ -272,38 +272,41 @@ app.get('/api/categories', (req, res) => {
   // Booking Endpoint:
 app.post('/api/book-now', async (req, res) => {
   try {
-    const { 
-      banquetId,       // foreign key to banquet_halls
-      name, 
-      phone, 
-      email, 
-      eventType, 
-      address, 
-      mahalName, 
-      location, 
-      price, 
-      dates, 
-      bookingDate      // optional single "main" booking date
-    } = req.body;
+    const { banquetId, name, phone, email, eventType, address, price, dates, bookingDate } = req.body;
 
-    // --- Required fields check ---
-    if (!banquetId || !name || !phone || !email || !eventType || !address || !mahalName || !location || !price || !dates) {
+    // Required fields check (mahalName, location removed)
+    if (!banquetId || !name || !phone || !email || !eventType || !address || !price || !dates) {
       return res.status(400).json({ success: false, message: 'Please fill all required fields.' });
     }
 
-    // --- Phone validation ---
+    // Fetch mahalName & location automatically from banquet_halls
+    const [hall] = await new Promise((resolve, reject) => {
+      db.query('SELECT name AS mahalName, location FROM banquet_halls WHERE id = ?', [banquetId], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    if (!hall) {
+      return res.status(404).json({ success: false, message: 'Banquet hall not found.' });
+    }
+
+    const mahalName = hall.mahalName;
+    const location = hall.location;
+
+    // Phone validation
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(String(phone))) {
       return res.status(400).json({ success: false, message: 'Invalid phone number.' });
     }
 
-    // --- Email validation ---
+    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(String(email))) {
       return res.status(400).json({ success: false, message: 'Invalid email format.' });
     }
 
-    // --- Normalize dates to array ---
+    // Normalize dates
     const dateList = Array.isArray(dates)
       ? dates.map(d => String(d).trim()).filter(Boolean)
       : String(dates).split(',').map(d => d.trim()).filter(Boolean);
@@ -312,72 +315,44 @@ app.post('/api/book-now', async (req, res) => {
       return res.status(400).json({ success: false, message: 'At least one date is required.' });
     }
 
-    // --- Check if any date is already booked ---
-    db.query('SELECT dates FROM bookings WHERE banquet_id = ?', [banquetId], (checkErr, rows) => {
-      if (checkErr) {
-        console.error('Check bookings error:', checkErr);
-        return res.status(500).json({ success: false, message: 'Error checking existing bookings.' });
-      }
-
-      const existingDates = rows.flatMap(r => {
-        try { return JSON.parse(r.dates); }
-        catch { return String(r.dates || '').split(',').map(s => s.trim()).filter(Boolean); }
-      });
-
-      const conflict = dateList.some(d => existingDates.includes(d));
-      if (conflict) {
-        return res.status(409).json({ success: false, message: 'Selected date(s) already booked.' });
-      }
-
-      // --- Insert booking ---
-      const insertSql = `
-        INSERT INTO bookings 
-        (name, phone, event_type, address, mahal_name, location, price, dates, booking_date, status, banquet_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
-      `;
-
-      const params = [
-        name,
-        phone,
-        eventType,
-        address,
-        mahalName,
-        location,
-        Number(price),
-        JSON.stringify(dateList),  // Store as JSON string
-        bookingDate || null,       // Optional single main date
-        banquetId
-      ];
-
-      db.query(insertSql, params, (insertErr, result) => {
-        if (insertErr) {
-          console.error('Insert booking error:', insertErr);
-          return res.status(500).json({ success: false, message: 'Failed to save booking.' });
+    // Check if any date is already booked
+    const existingDates = await new Promise((resolve, reject) => {
+      db.query('SELECT dates FROM bookings WHERE banquet_id = ?', [banquetId], (err, rows) => {
+        if (err) reject(err);
+        else {
+          resolve(rows.flatMap(r => {
+            try { return JSON.parse(r.dates); }
+            catch { return String(r.dates || '').split(',').map(s => s.trim()).filter(Boolean); }
+          }));
         }
-
-        // --- Send confirmation email (non-blocking) ---
-        transporter.sendMail({
-          from: process.env.EMAIL_USER,
-          to: email,
-          subject: 'Booking Confirmation - Kumbam',
-          html: `<h2>Hi ${name},</h2>
-                 <p>Your booking for <b>${eventType}</b> at <b>${mahalName}</b> on <b>${dateList.join(', ')}</b> has been received.</p>
-                 <p>Total Price: ₹${price}</p>`
-        }).catch(e => console.error('Email send error:', e));
-
-        return res.status(200).json({
-          success: true,
-          message: 'Booking successful',
-          bookingId: result.insertId
-        });
       });
     });
+
+    if (dateList.some(d => existingDates.includes(d))) {
+      return res.status(409).json({ success: false, message: 'Selected date(s) already booked.' });
+    }
+
+    // Insert booking
+    await new Promise((resolve, reject) => {
+      db.query(`
+        INSERT INTO bookings 
+        (name, phone, event_type, address, mahal_name, location, price, dates, booking_date, status, banquet_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+        [name, phone, eventType, address, mahalName, location, Number(price), JSON.stringify(dateList), bookingDate || null, banquetId],
+        (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        }
+      );
+    });
+
+    return res.status(200).json({ success: true, message: 'Booking successful' });
+
   } catch (e) {
-    console.error('book-now top-level error:', e);
+    console.error('book-now error:', e);
     return res.status(500).json({ success: false, message: 'Server error.' });
   }
 });
-
 
 
 
