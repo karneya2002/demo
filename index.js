@@ -270,132 +270,145 @@ app.get('/api/categories', (req, res) => {
 
 
   // Booking Endpoint:
- app.post('/api/book-now', async (req, res) => {
-  const { hallId, name, phone, email, eventType, address, dates, totalPrice } = req.body;
+app.post('/api/book-now', async (req, res) => {
+  try {
+    const { hallId, name, phone, email, eventType, address, dates, totalPrice } = req.body;
 
-  if (!hallId || !name || !phone || !email || !eventType || !address || !dates || !totalPrice) {
-    return res.status(400).json({ success: false, message: 'Please fill all fields.' });
-  }
-
-  const phoneRegex = /^[6-9]\d{9}$/;
-  if (!phoneRegex.test(phone)) {
-    return res.status(400).json({ success: false, message: 'Invalid phone number.' });
-  }
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ success: false, message: 'Invalid email format.' });
-  }
-
-  const dateList = Array.isArray(dates) ? dates : dates.split(',').map(d => d.trim());
-
-  // 🔍 Check for conflicts
-  const checkQuery = `SELECT dates FROM bookings WHERE hall_id = ?`;
-  db.query(checkQuery, [hallId], async (checkErr, rows) => {
-    if (checkErr) return res.status(500).json({ success: false, message: 'Error checking existing bookings.' });
-
-    const existingDates = rows
-      .map(r => {
-        try {
-          return JSON.parse(r.dates);
-        } catch {
-          return r.dates.split(',').map(d => d.trim());
-        }
-      })
-      .flat();
-
-    const conflict = dateList.some(date => existingDates.includes(date));
-    if (conflict) {
-      return res.status(409).json({ success: false, message: 'Selected date(s) already booked.' });
+    if (!hallId || !name || !phone || !email || !eventType || !address || !dates || totalPrice == null) {
+      return res.status(400).json({ success: false, message: 'Please fill all fields.' });
     }
 
-    // 📝 Insert booking
-    const insertQuery = `
-      INSERT INTO bookings (hall_id, name, phone, email, event_type, address, dates, total_price)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    db.query(insertQuery, [hallId, name, phone, email, eventType, address, JSON.stringify(dateList), totalPrice], async (insertErr, result) => {
-      if (insertErr) return res.status(500).json({ success: false, message: 'Failed to save booking.' });
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(String(phone))) {
+      return res.status(400).json({ success: false, message: 'Invalid phone number.' });
+    }
 
-      // 📧 Send confirmation email
-      try {
-        await transporter.sendMail({
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(String(email))) {
+      return res.status(400).json({ success: false, message: 'Invalid email format.' });
+    }
+
+    // normalize dates to array of strings
+    const dateList = Array.isArray(dates)
+      ? dates.map(d => String(d).trim()).filter(Boolean)
+      : String(dates).split(',').map(d => d.trim()).filter(Boolean);
+
+    if (dateList.length === 0) {
+      return res.status(400).json({ success: false, message: 'At least one date is required.' });
+    }
+
+    // read all existing dates for this hall
+    db.query('SELECT dates FROM bookings WHERE hall_id = ?', [hallId], async (checkErr, rows) => {
+      if (checkErr) {
+        console.error('Check bookings error:', checkErr);
+        return res.status(500).json({ success: false, message: 'Error checking existing bookings.' });
+      }
+
+      const existingDates = rows.flatMap(r => {
+        try { return JSON.parse(r.dates); }
+        catch { return String(r.dates || '').split(',').map(s => s.trim()).filter(Boolean); }
+      });
+
+      // conflict detection
+      const conflict = dateList.some(d => existingDates.includes(d));
+      if (conflict) {
+        return res.status(409).json({ success: false, message: 'Selected date(s) already booked.' });
+      }
+
+      // insert
+      const insertSql = `
+        INSERT INTO bookings (hall_id, name, phone, email, event_type, address, dates, total_price)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const params = [hallId, name, phone, email, eventType, address, JSON.stringify(dateList), Number(totalPrice)];
+
+      db.query(insertSql, params, async (insertErr, result) => {
+        if (insertErr) {
+          console.error('Insert booking error:', insertErr);   // ← see the real reason
+          return res.status(500).json({ success: false, message: 'Failed to save booking.' });
+        }
+
+        // fire-and-forget email (don’t fail the API if mail fails)
+        transporter.sendMail({
           from: process.env.EMAIL_USER,
           to: email,
           subject: 'Booking Confirmation - Kumbam',
-          html: `<h2>Hi ${name},</h2><p>Your booking for ${eventType} on ${dateList.join(', ')} has been received.</p>`
-        });
-      } catch (mailErr) {
-        console.error('Email sending failed:', mailErr);
-      }
+          html: `<h2>Hi ${name},</h2><p>Your booking for <b>${eventType}</b> on <b>${dateList.join(', ')}</b> has been received.</p>`
+        }).catch(e => console.error('Email send error:', e));
 
-      return res.status(200).json({
-        success: true,
-        message: 'Booking successful',
-        bookingId: result.insertId,
+        return res.status(200).json({
+          success: true,
+          message: 'Booking successful',
+          bookingId: result.insertId,
+        });
       });
     });
-  });
+  } catch (e) {
+    console.error('book-now top-level error:', e);
+    return res.status(500).json({ success: false, message: 'Server error.' });
+  }
 });
+
+
+
 
 
 app.get('/api/booked-dates/:hallId', (req, res) => {
   const { hallId } = req.params;
 
-  const query = 'SELECT dates FROM bookings WHERE hall_id = ?';
-  db.query(query, [hallId], (err, results) => {
+  db.query('SELECT dates FROM bookings WHERE hall_id = ?', [hallId], (err, results) => {
     if (err) {
       console.error('Error fetching booked dates:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Database error while fetching booked dates',
-      });
+      return res.status(500).json({ success: false, message: 'Database error while fetching booked dates' });
     }
 
-    const bookedDates = results
-      .map(row => {
-        try {
-          return JSON.parse(row.dates);
-        } catch {
-          return row.dates.split(',').map(d => d.trim());
-        }
-      })
-      .flat();
-
-    res.status(200).json({
-      success: true,
-      bookedDates,
+    const bookedDates = results.flatMap(row => {
+      try { return JSON.parse(row.dates); }
+      catch { return String(row.dates || '').split(',').map(d => d.trim()).filter(Boolean); }
     });
+
+    return res.status(200).json({ success: true, bookedDates });
   });
 });
-
 
 
 // Filter available halls for a given date
 
 app.get('/api/available-halls', (req, res) => {
   const { date } = req.query;
-  const query = `
-    SELECT * FROM halls WHERE id NOT IN (
-      SELECT hall_id FROM bookings WHERE FIND_IN_SET(?, booking_dates)
+  if (!date) return res.status(400).json({ success: false, message: 'date is required (DD-MM-YYYY)' });
+
+  const sql = `
+    SELECT h.*
+    FROM banquet_halls h
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM bookings b
+      WHERE b.hall_id = h.id
+        AND JSON_SEARCH(b.dates, 'one', ?) IS NOT NULL
     )
   `;
-
-  db.query(query, [date], (err, result) => {
-    if (err) return res.status(500).json({ success: false, message: 'Error fetching halls' });
+  db.query(sql, [date], (err, result) => {
+    if (err) {
+      console.error('available-halls error:', err);
+      return res.status(500).json({ success: false, message: 'Error fetching halls' });
+    }
     res.json({ success: true, availableHalls: result });
   });
 });
 
 
+
   // ✅ Booking Insert
   app.get('/banquets/:id', (req, res) => {
-    const { id } = req.params;
-    db.query('SELECT * FROM banquet_halls WHERE id = ?', [id], (err, result) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json(result[0]);
-    });
+  const { id } = req.params;
+  db.query('SELECT * FROM banquet_halls WHERE id = ?', [id], (err, result) => {
+    if (err) return res.status(500).json({ error: err });
+    if (!result.length) return res.status(404).json({ error: 'Not found' });
+    res.json(result[0]);
   });
+});
+
 
  app.listen(5000, '0.0.0.0', () => {
     console.log('✅ Server running on port 5000');
