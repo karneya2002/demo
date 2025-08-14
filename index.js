@@ -338,6 +338,32 @@ app.get('/api/categories', (req, res) => {
   });
 });
 
+// Filter available halls for a given date
+
+app.get('/api/available-halls', (req, res) => {
+  const { date } = req.query;
+  const query = `
+    SELECT * FROM halls WHERE id NOT IN (
+      SELECT hall_id FROM bookings WHERE FIND_IN_SET(?, booking_dates)
+    )
+  `;
+
+  db.query(query, [date], (err, result) => {
+    if (err) return res.status(500).json({ success: false, message: 'Error fetching halls' });
+    res.json({ success: true, availableHalls: result });
+  });
+});
+
+
+  // ✅ Booking Insert
+  app.get('/banquets/:id', (req, res) => {
+    const { id } = req.params;
+    db.query('SELECT * FROM banquet_halls WHERE id = ?', [id], (err, result) => {
+      if (err) return res.status(500).json({ error: err });
+      res.json(result[0]);
+    });
+  });
+
  app.listen(5000, '0.0.0.0', () => {
     console.log('✅ Server running on port 5000');
   });
