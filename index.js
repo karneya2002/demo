@@ -1,17 +1,21 @@
  const express = require('express');
   const mysql = require('mysql2');
-  const cors = require('cors');
+ 
   const bcrypt = require('bcrypt');
   const nodemailer = require('nodemailer');
   const dotenv = require('dotenv');
   dotenv.config();
   const Razorpay = require('razorpay');
   const app = express();
-  app.use(cors());
+;
   app.use(express.json());
   app.use('/uploads', express.static('uploads'));
   const crypto = require('crypto');
   const axios = require('axios');
+
+  const cors = require("cors");
+app.use(cors({ origin: "*" }));
+
 
 
   // ✅ MySQL Connection Pool
