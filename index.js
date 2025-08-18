@@ -185,7 +185,6 @@ app.post('/api/forgot-password', (req, res) => {
 });
 
 // Mahals List Insertion:
-// Add new banquet with images
 app.post('/api/banquets', (req, res) => {
   const { name, category, address, capacity, price, description, images } = req.body;
 
@@ -198,7 +197,7 @@ app.post('/api/banquets', (req, res) => {
 
     // Insert images if provided
     if (images && images.length > 0) {
-      const imageValues = images.map(img => [banquetId, img.url]); // <-- img.url instead of plain string
+      const imageValues = images.map(url => [banquetId, url]);
       db.query(`INSERT INTO banquet_images (banquet_id, image_url) VALUES ?`, [imageValues], (imgErr) => {
         if (imgErr) return res.status(500).send(imgErr);
         res.json({ message: 'Banquet added successfully', banquetId });
@@ -209,12 +208,13 @@ app.post('/api/banquets', (req, res) => {
   });
 });
 
-// Fetch a single banquet with images
+
+// Mahals List To View For Multiple Images:
 app.get('/api/banquet/:id', (req, res) => {
   const banquetId = req.params.id;
 
   const sql = `
-    SELECT b.*, GROUP_CONCAT(i.image_url SEPARATOR '|||') AS images
+    SELECT b.*, GROUP_CONCAT(i.image_url) AS images
     FROM banquet_halls b
     LEFT JOIN banquet_images i ON b.id = i.banquet_id
     WHERE b.id = ?
@@ -230,74 +230,43 @@ app.get('/api/banquet/:id', (req, res) => {
 
     const banquet = {
       ...results[0],
-      images: results[0].images
-        ? results[0].images.split('|||').map(url => ({ url })) // <-- return as objects
-        : []
+      images: results[0].images ? results[0].images.split(',') : []
     };
 
     res.json(banquet);
   });
 });
 
-// Fetch all banquets with images
-// app.get('/api/banquets', (req, res) => {
-//   const sql = `
-//     SELECT b.*, GROUP_CONCAT(i.image_url SEPARATOR '|||') AS images
-//     FROM banquet_halls b
-//     LEFT JOIN banquet_images i ON b.id = i.banquet_id
-//     GROUP BY b.id
-//   `;
+// Fetch all banquet halls
+app.get('/api/banquets', (req, res) => {
+  const sql = `
+    SELECT b.*, GROUP_CONCAT(i.image_url) AS images
+    FROM banquet_halls b
+    LEFT JOIN banquet_images i ON b.id = i.banquet_id
+    GROUP BY b.id
+  `;
 
-//   db.query(sql, (err, results) => {
-//     if (err) return res.status(500).send(err);
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).send(err);
 
-//     const formatted = results.map(row => ({
-//       ...row,
-//       images: row.images
-//         ? row.images.split('|||').map(url => ({ url })) // <-- return as objects
-//         : []
-//     }));
+    // Convert comma-separated images into an array
+    const formatted = results.map(row => ({
+      ...row,
+      images: row.images ? row.images.split(',') : []
+    }));
 
-//     res.json(formatted);
-//   });
-// });
-// Get all banquets
-app.get('/api/banquets', async (req, res) => {
-  try {
-    const [rows] = await db.query(`
-      SELECT 
-        id,
-        name,
-        location AS address,
-        guest_capacity AS capacity,
-        price,
-        image_url,
-        dining_capacity,
-        rooms,
-        parking,
-        ac,
-        category,
-        description
-      FROM banquet_halls
-    `);
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database query failed' });
-  }
+    res.json(formatted);
+  });
 });
 
-// Get distinct categories
-app.get('/api/categories', async (req, res) => {
-  try {
-    const [results] = await db.query('SELECT DISTINCT category FROM banquet_halls');
-    res.json(results.map(r => r.category));
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database query failed' });
-  }
-});
 
+// Category-wise Mahals List:
+app.get('/api/categories', (req, res) => {
+    db.query('SELECT DISTINCT category FROM banquet_halls', (err, results) => {
+      if (err) return res.status(500).send(err);
+      res.json(results.map(r => r.category));
+    });
+  });
 
 
   // Booking Endpoint:
