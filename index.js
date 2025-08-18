@@ -185,6 +185,7 @@ app.post('/api/forgot-password', (req, res) => {
 });
 
 // Mahals List Insertion:
+// Add new banquet with images
 app.post('/api/banquets', (req, res) => {
   const { name, category, address, capacity, price, description, images } = req.body;
 
@@ -197,7 +198,7 @@ app.post('/api/banquets', (req, res) => {
 
     // Insert images if provided
     if (images && images.length > 0) {
-      const imageValues = images.map(url => [banquetId, url]);
+      const imageValues = images.map(img => [banquetId, img.url]); // <-- img.url instead of plain string
       db.query(`INSERT INTO banquet_images (banquet_id, image_url) VALUES ?`, [imageValues], (imgErr) => {
         if (imgErr) return res.status(500).send(imgErr);
         res.json({ message: 'Banquet added successfully', banquetId });
@@ -208,13 +209,12 @@ app.post('/api/banquets', (req, res) => {
   });
 });
 
-
-// Mahals List To View For Multiple Images:
+// Fetch a single banquet with images
 app.get('/api/banquet/:id', (req, res) => {
   const banquetId = req.params.id;
 
   const sql = `
-    SELECT b.*, GROUP_CONCAT(i.image_url) AS images
+    SELECT b.*, GROUP_CONCAT(i.image_url SEPARATOR '|||') AS images
     FROM banquet_halls b
     LEFT JOIN banquet_images i ON b.id = i.banquet_id
     WHERE b.id = ?
@@ -230,17 +230,19 @@ app.get('/api/banquet/:id', (req, res) => {
 
     const banquet = {
       ...results[0],
-      images: results[0].images ? results[0].images.split(',') : []
+      images: results[0].images
+        ? results[0].images.split('|||').map(url => ({ url })) // <-- return as objects
+        : []
     };
 
     res.json(banquet);
   });
 });
 
-// Fetch all banquet halls
+// Fetch all banquets with images
 app.get('/api/banquets', (req, res) => {
   const sql = `
-    SELECT b.*, GROUP_CONCAT(i.image_url) AS images
+    SELECT b.*, GROUP_CONCAT(i.image_url SEPARATOR '|||') AS images
     FROM banquet_halls b
     LEFT JOIN banquet_images i ON b.id = i.banquet_id
     GROUP BY b.id
@@ -249,10 +251,11 @@ app.get('/api/banquets', (req, res) => {
   db.query(sql, (err, results) => {
     if (err) return res.status(500).send(err);
 
-    // Convert comma-separated images into an array
     const formatted = results.map(row => ({
       ...row,
-      images: row.images ? row.images.split(',') : []
+      images: row.images
+        ? row.images.split('|||').map(url => ({ url })) // <-- return as objects
+        : []
     }));
 
     res.json(formatted);
