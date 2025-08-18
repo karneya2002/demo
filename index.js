@@ -404,6 +404,43 @@ app.get('/api/categories', (req, res) => {
 //     return res.status(500).json({ success: false, message: 'Server error.' });
 //   }
 // });
+// ✅ Book Now API
+app.post('/api/book', async (req, res) => {
+  try {
+    const {
+      name,
+      phone,
+      event_type,
+      address,
+      mahal_name,
+      location,
+      price,
+      dates,
+      booking_date,
+      banquet_id
+    } = req.body;
+
+    if (!name || !phone || !dates || !banquet_id) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const [result] = await db.promise().query(
+      `INSERT INTO bookings 
+       (name, phone, event_type, address, mahal_name, location, price, dates, booking_date, status, banquet_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      [name, phone, event_type, address, mahal_name, location, price, dates, booking_date, banquet_id]
+    );
+
+    res.json({
+      success: true,
+      bookingId: result.insertId,
+      message: "✅ Booking created successfully"
+    });
+  } catch (err) {
+    console.error("❌ Booking API failed:", err);
+    res.status(500).json({ error: "Database error" });
+  }
+});
 
 
 
