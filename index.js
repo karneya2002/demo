@@ -261,6 +261,7 @@ app.get('/api/banquet/:id', (req, res) => {
 //     res.json(formatted);
 //   });
 // });
+// Get all banquets
 app.get('/api/banquets', async (req, res) => {
   try {
     const [rows] = await db.query(`
@@ -286,14 +287,17 @@ app.get('/api/banquets', async (req, res) => {
   }
 });
 
+// Get distinct categories
+app.get('/api/categories', async (req, res) => {
+  try {
+    const [results] = await db.query('SELECT DISTINCT category FROM banquet_halls');
+    res.json(results.map(r => r.category));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database query failed' });
+  }
+});
 
-// Category-wise Mahals List:
-app.get('/api/categories', (req, res) => {
-    db.query('SELECT DISTINCT category FROM banquet_halls', (err, results) => {
-      if (err) return res.status(500).send(err);
-      res.json(results.map(r => r.category));
-    });
-  });
 
 
   // Booking Endpoint:
