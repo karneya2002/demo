@@ -464,6 +464,21 @@ app.post("/api/book-now", async (req, res) => {
 
 
 
+app.get("/api/booked-dates", async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(
+      "SELECT dates FROM bookings WHERE status != 'cancelled'"
+    );
+
+    const bookedDates = rows.map(r => r.dates);
+    res.json({ bookedDates });
+  } catch (err) {
+    console.error("❌ Failed to fetch booked dates:", err);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+
 
 app.get('/api/booked-dates/:hallId', (req, res) => {
   const { hallId } = req.params;
