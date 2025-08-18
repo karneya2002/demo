@@ -238,25 +238,30 @@ app.get('/api/banquet/:id', (req, res) => {
 });
 
 // Fetch all banquet halls
-app.get('/api/banquets', (req, res) => {
-  const sql = `
-    SELECT b.*, GROUP_CONCAT(i.image_url) AS images
-    FROM banquet_halls b
-    LEFT JOIN banquet_images i ON b.id = i.banquet_id
-    GROUP BY b.id
-  `;
-
-  db.query(sql, (err, results) => {
-    if (err) return res.status(500).send(err);
-
-    // Convert comma-separated images into an array
-    const formatted = results.map(row => ({
-      ...row,
-      images: row.images ? row.images.split(',') : []
-    }));
-
-    res.json(formatted);
-  });
+// ✅ Get all banquets (mysql2 callback pool + promise wrapper)
+app.get('/api/banquets', async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(`
+      SELECT 
+        id,
+        name,
+        location AS address,       
+        guest_capacity AS capacity, 
+        price,
+        image_url,
+        dining_capacity,
+        rooms,
+        parking,
+        ac,
+        category,
+        description
+      FROM banquet_halls
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Database query failed:', err);
+    res.status(500).json({ error: 'Database query failed' });
+  }
 });
 
 
