@@ -240,27 +240,27 @@ app.get('/api/banquet/:id', (req, res) => {
 });
 
 // Fetch all banquets with images
-app.get('/api/banquets', (req, res) => {
-  const sql = `
-    SELECT b.*, GROUP_CONCAT(i.image_url SEPARATOR '|||') AS images
-    FROM banquet_halls b
-    LEFT JOIN banquet_images i ON b.id = i.banquet_id
-    GROUP BY b.id
-  `;
+// app.get('/api/banquets', (req, res) => {
+//   const sql = `
+//     SELECT b.*, GROUP_CONCAT(i.image_url SEPARATOR '|||') AS images
+//     FROM banquet_halls b
+//     LEFT JOIN banquet_images i ON b.id = i.banquet_id
+//     GROUP BY b.id
+//   `;
 
-  db.query(sql, (err, results) => {
-    if (err) return res.status(500).send(err);
+//   db.query(sql, (err, results) => {
+//     if (err) return res.status(500).send(err);
 
-    const formatted = results.map(row => ({
-      ...row,
-      images: row.images
-        ? row.images.split('|||').map(url => ({ url })) // <-- return as objects
-        : []
-    }));
+//     const formatted = results.map(row => ({
+//       ...row,
+//       images: row.images
+//         ? row.images.split('|||').map(url => ({ url })) // <-- return as objects
+//         : []
+//     }));
 
-    res.json(formatted);
-  });
-});
+//     res.json(formatted);
+//   });
+// });
 app.get('/api/banquets', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM banquet_halls');
