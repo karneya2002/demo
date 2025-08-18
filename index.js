@@ -437,10 +437,11 @@ app.post('/api/book', async (req, res) => {
       message: "✅ Booking created successfully"
     });
   } catch (err) {
-    console.error("❌ Booking API failed:", err);
+    console.error("❌ Booking API failed:", err);   // <--- we only see "Database error"
     res.status(500).json({ error: "Database error" });
   }
 });
+
 
 
 
