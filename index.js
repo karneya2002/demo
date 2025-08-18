@@ -38,7 +38,7 @@
 // Payment Gateway Setup
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_SECRET,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
 // Nodemailer Setup
@@ -553,58 +553,28 @@ app.get('/api/available-halls', (req, res) => {
 
 
 
-app.use('/api/initiate-payment', async (req, res) => {
-  const { amount, phone, email, hallId, bookingId } = req.body;
-
-  if (!amount || !phone || !email || !hallId || !bookingId) {
-    return res.status(400).json({ success: false, message: 'Missing required fields' });
-  }
-
-  const transactionId = `TXN_${Date.now()}`;
-  const payload = {
-    merchantId: process.env.PHONEPE_MERCHANT_ID,
-    merchantTransactionId: transactionId,
-    merchantUserId: process.env.PHONEPE_USER_ID,
-    amount: amount * 100,
-    redirectUrl: `${process.env.PHONEPE_CALLBACK_URL}?transactionId=${transactionId}&bookingId=${bookingId}`,
-    redirectMode: 'POST',
-    mobileNumber: phone,
-    paymentInstrument: { type: 'UPI_INTENT' },
-  };
-
-  const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64');
-  const stringToSign = base64Payload + '/pg/v1/pay' + process.env.PHONEPE_SALT_KEY;
-  const xVerify = crypto.createHash('sha256').update(stringToSign).digest('hex') + `###${process.env.PHONEPE_SALT_INDEX}`;
-
+app.post('/api/initiate-payment', async (req, res) => {
   try {
-    const response = await axios.post(
-      'https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1/pay',
-      { request: base64Payload },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-VERIFY': xVerify,
-          accept: 'application/json',
-        },
-      }
-    );
+    const { amount, bookingId } = req.body;
 
-    const redirectUrl = response?.data?.data?.instrumentResponse?.redirectInfo?.url;
-    if (!redirectUrl) {
-      return res.status(502).json({ success: false, message: 'No payment link from PhonePe' });
-    }
+    const order = await razorpay.orders.create({
+      amount: amount * 100, // amount in paise
+      currency: "INR",
+      receipt: bookingId,
+    });
 
-    await db.promise().query(
-      `INSERT INTO payments (transaction_id, booking_id, status, amount, method, email, phone) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [transactionId, bookingId, 'PENDING', amount, 'UPI', email, phone]
-    );
-
-    res.json({ success: true, paymentUrl: redirectUrl });
+    res.json({
+      success: true,
+      orderId: order.id,
+      amount: order.amount,
+      key: process.env.RAZORPAY_KEY_ID,
+    });
   } catch (err) {
-    console.error('Payment Error:', err?.response?.data || err.message);
-    res.status(500).json({ success: false, message: 'Failed to initiate payment' });
+    console.error(err);
+    res.status(500).json({ success: false, message: "Failed to create Razorpay order" });
   }
 });
+
 // ✅ CHECK PAYMENT STATUS
 app.get('/api/check-payment-status/:transactionId', async (req, res) => {
   const { transactionId } = req.params;
