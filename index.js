@@ -405,7 +405,7 @@ app.get('/api/categories', (req, res) => {
 //   }
 // });
 // ✅ Book Now API
-app.post('/api/book', async (req, res) => {
+app.post("/api/book-now", async (req, res) => {
   try {
     const {
       name,
@@ -417,28 +417,48 @@ app.post('/api/book', async (req, res) => {
       price,
       dates,
       booking_date,
-      banquet_id
+      status,
+      banquet_id,
     } = req.body;
 
-    if (!name || !phone || !dates || !banquet_id) {
-      return res.status(400).json({ error: "Missing required fields" });
+    // Validation
+    if (!name || !phone || !event_type || !dates || !banquet_id) {
+      return res.status(400).json({ message: "Missing required fields" });
     }
 
-    const [result] = await db.promise().query(
-      `INSERT INTO bookings 
-       (name, phone, event_type, address, mahal_name, location, price, dates, booking_date, status, banquet_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
-      [name, phone, event_type, address, mahal_name, location, price, dates, booking_date, banquet_id]
-    );
+    const created_at = new Date();
 
-    res.json({
-      success: true,
-      bookingId: result.insertId,
-      message: "✅ Booking created successfully"
+    const query = `
+      INSERT INTO bookings 
+      (name, phone, event_type, address, mahal_name, location, price, dates, created_at, booking_date, status, banquet_id) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const values = [
+      name,
+      phone,
+      event_type,
+      address,
+      mahal_name,
+      location,
+      price,
+      dates,
+      created_at,
+      booking_date,
+      status || "pending", // default value
+      banquet_id,
+    ];
+
+    db.query(query, values, (err, result) => {
+      if (err) {
+        console.error("❌ Database Error:", err);
+        return res.status(500).json({ message: "Database error" });
+      }
+      res.status(201).json({ message: "✅ Booking successful", bookingId: result.insertId });
     });
-  } catch (err) {
-    console.error("❌ Booking API failed:", err);   // <--- we only see "Database error"
-    res.status(500).json({ error: "Database error" });
+  } catch (error) {
+    console.error("❌ Server Error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
