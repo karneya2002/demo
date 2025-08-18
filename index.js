@@ -263,11 +263,26 @@ app.get('/api/banquet/:id', (req, res) => {
 // });
 app.get('/api/banquets', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM banquet_halls');
+    const [rows] = await db.query(`
+      SELECT 
+        id,
+        name,
+        location AS address,
+        guest_capacity AS capacity,
+        price,
+        image_url,
+        dining_capacity,
+        rooms,
+        parking,
+        ac,
+        category,
+        description
+      FROM banquet_halls
+    `);
     res.json(rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Server error while fetching banquets' });
+    res.status(500).json({ error: 'Database query failed' });
   }
 });
 
