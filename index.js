@@ -261,6 +261,15 @@ app.get('/api/banquets', (req, res) => {
     res.json(formatted);
   });
 });
+app.get('/api/banquets', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM banquet_halls');
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error while fetching banquets' });
+  }
+});
 
 
 // Category-wise Mahals List:
