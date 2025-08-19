@@ -13,7 +13,7 @@
   const crypto = require('crypto');
   const axios = require('axios');
 
-  const cors = require("cors");
+const cors = require("cors");
 app.use(cors({ origin: "*" }));
 
 
@@ -278,136 +278,6 @@ app.get('/api/categories', (req, res) => {
   });
 
 
-  // Booking Endpoint:
-// app.post('/api/book-now', async (req, res) => {
-//   try {
-//     const {
-//       banquetId,
-//       name,
-//       phone,
-//       email,
-//       eventType,
-//       address,
-//       price,
-//       dates,
-//       bookingDate
-//     } = req.body;
-
-//     // 1️⃣ Required fields check
-//     const requiredFields = { banquetId, name, phone, email, eventType, address, price, dates };
-//     for (const [key, value] of Object.entries(requiredFields)) {
-//       if (
-//         value === undefined ||
-//         value === null ||
-//         (typeof value === 'string' && !value.trim()) ||
-//         (Array.isArray(value) && value.length === 0)
-//       ) {
-//         return res.status(400).json({ success: false, message: `Missing required field: ${key}` });
-//       }
-//     }
-
-//     // 2️⃣ Fetch hall details
-//     const [hall] = await new Promise((resolve, reject) => {
-//       db.query(
-//         'SELECT name AS mahalName, address AS location FROM banquet_halls WHERE id = ?',
-//         [banquetId],
-//         (err, rows) => (err ? reject(err) : resolve(rows))
-//       );
-//     });
-
-//     if (!hall) {
-//       return res.status(404).json({ success: false, message: 'Banquet hall not found.' });
-//     }
-
-//     const mahalName = hall.mahalName;
-//     const location = hall.location;
-
-//     // 3️⃣ Phone validation
-//     if (!/^[6-9]\d{9}$/.test(String(phone))) {
-//       return res.status(400).json({ success: false, message: 'Invalid phone number. Must be 10 digits starting with 6-9.' });
-//     }
-
-//     // 4️⃣ Email validation
-//     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
-//       return res.status(400).json({ success: false, message: 'Invalid email format.' });
-//     }
-
-//     // 5️⃣ Normalize dates
-//     const dateList = Array.isArray(dates)
-//       ? dates.map(d => String(d).trim()).filter(Boolean)
-//       : String(dates).split(',').map(d => d.trim()).filter(Boolean);
-
-//     if (dateList.length === 0) {
-//       return res.status(400).json({ success: false, message: 'At least one booking date is required.' });
-//     }
-
-//     // 6️⃣ Check already booked dates
-//     const existingDates = await new Promise((resolve, reject) => {
-//       db.query(
-//         'SELECT dates FROM bookings WHERE banquet_id = ?',
-//         [banquetId],
-//         (err, rows) => {
-//           if (err) return reject(err);
-//           const all = rows.flatMap(r => {
-//             try {
-//               return JSON.parse(r.dates); // stored as JSON array
-//             } catch {
-//               return String(r.dates || '')
-//                 .split(',')
-//                 .map(s => s.trim())
-//                 .filter(Boolean);
-//             }
-//           });
-//           resolve(all);
-//         }
-//       );
-//     });
-
-//     const alreadyBooked = dateList.filter(d => existingDates.includes(d));
-//     if (alreadyBooked.length > 0) {
-//       return res.status(409).json({
-//         success: false,
-//         message: `These dates are already booked: ${alreadyBooked.join(', ')}`
-//       });
-//     }
-
-//     // 7️⃣ Insert booking
-//     const result = await new Promise((resolve, reject) => {
-//       db.query(
-//         `
-//         INSERT INTO bookings 
-//         (name, phone, event_type, address, mahal_name, location, price, dates, booking_date, status, banquet_id, email)
-//         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
-//         `,
-//         [
-//           name.trim(),
-//           phone.trim(),
-//           eventType.trim(),
-//           address.trim(),
-//           mahalName,
-//           location,
-//           Number(price),
-//           JSON.stringify(dateList), // store as JSON
-//           bookingDate || null,
-//           banquetId,
-//           email.trim()
-//         ],
-//         (err, result) => (err ? reject(err) : resolve(result))
-//       );
-//     });
-
-//     // 8️⃣ Success
-//     return res.status(200).json({
-//       success: true,
-//       message: 'Booking successful',
-//       bookingId: result.insertId
-//     });
-
-//   } catch (e) {
-//     console.error('book-now error:', e);
-//     return res.status(500).json({ success: false, message: 'Server error.' });
-//   }
-// });
 // ✅ Book Now API
 app.post("/api/book-now", async (req, res) => {
   try {
@@ -654,6 +524,77 @@ app.post('/api/payment-success', async (req, res) => {
     res.json(result[0]);
   });
 });
+
+
+
+// Get Muhurtham Dates for a specific hall
+app.get('/api/muhurtham_dates_2025/:hallId', async (req, res) => {
+  try {
+    const { hallId } = req.params;
+
+    // ✅ Query is correct: fetches by hall_id and orders by date
+    const [rows] = await db.query(
+      `SELECT id, hall_id, date, description 
+       FROM muhurtham_dates_2025 
+       WHERE hall_id = ? 
+       ORDER BY date ASC`,
+      [hallId]
+    );
+
+    // ✅ Returns JSON response with results
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching muhurtham dates:', error);
+    res.status(500).json({ message: 'Server error while fetching muhurtham dates' });
+  }
+});
+
+
+app.get('/api/muhurtham_dates_2025/:hallId', async (req, res) => {
+  try {
+    const { hallId } = req.params;
+
+    // 1️⃣ Fetch Muhurtham Dates
+    const [muhurthamRows] = await db.query(
+      `SELECT date, description 
+       FROM muhurtham_dates_2025 
+       WHERE hall_id = ? 
+       ORDER BY date ASC`,
+      [hallId]
+    );
+
+    // 2️⃣ Fetch Booked Dates
+    const [bookedRows] = await db.query(
+      `SELECT dates AS date, status 
+       FROM bookings 
+       WHERE banquet_id = ? 
+       AND status = 'booked'
+       ORDER BY dates ASC`,
+      [hallId]
+    );
+
+    // 3️⃣ Format response
+    const response = {
+      muhurthamDates: muhurthamRows.map(row => ({
+        date: row.date,
+        type: "muhurtham",
+        description: row.description
+      })),
+      bookedDates: bookedRows.map(row => ({
+        date: row.date,
+        type: "booked",
+        status: row.status
+      }))
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    console.error('Error fetching dates:', error);
+    res.status(500).json({ message: 'Server error while fetching dates' });
+  }
+});
+
 
 
  app.listen(5000, '0.0.0.0', () => {
