@@ -284,8 +284,8 @@ app.get('/api/banquets', async (req, res) => {
         b.parking,
         b.ac,
         b.category,
-        b.description,
-        b.image_url
+        b.description
+        
       FROM banquet_halls b
       LEFT JOIN  banquet_hall_images i ON b.id = i.banquet_id
       GROUP BY b.id
