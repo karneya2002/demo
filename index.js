@@ -243,30 +243,66 @@ app.get('/api/banquet/:id', (req, res) => {
 
 // Fetch all banquet halls
 // ✅ Get all banquets (mysql2 callback pool + promise wrapper)
+// app.get('/api/banquets', async (req, res) => {
+//   try {
+//     const [rows] = await db.promise().query(`
+//       SELECT 
+//         id,
+//         name,
+//         location AS address,       
+//         guest_capacity AS capacity, 
+//         price,
+//         image_url,
+//         dining_capacity,
+//         rooms,
+//         parking,
+//         ac,
+//         category,
+//         description
+//       FROM banquet_halls
+//     `);
+//     res.json(rows);
+//   } catch (err) {
+//     console.error('❌ Database query failed:', err);
+//     res.status(500).json({ error: 'Database query failed' });
+//   }
+// });
+
+// ✅ Get all banquets with multiple images
 app.get('/api/banquets', async (req, res) => {
   try {
     const [rows] = await db.promise().query(`
       SELECT 
-        id,
-        name,
-        location AS address,       
-        guest_capacity AS capacity, 
-        price,
-        image_url,
-        dining_capacity,
-        rooms,
-        parking,
-        ac,
-        category,
-        description
-      FROM banquet_halls
+        b.id,
+        b.name,
+        b.location AS address,       
+        b.guest_capacity AS capacity, 
+        b.price,
+        GROUP_CONCAT(i.image_url) AS images,
+        b.dining_capacity,
+        b.rooms,
+        b.parking,
+        b.ac,
+        b.category,
+        b.description
+      FROM banquet_halls b
+      LEFT JOIN  banquet_hall_images i ON b.id = i.banquet_id
+      GROUP BY b.id
     `);
-    res.json(rows);
+
+    // 🔹 Convert comma-separated images into an array
+    const data = rows.map(row => ({
+      ...row,
+      images: row.images ? row.images.split(',') : []
+    }));
+
+    res.json(data);
   } catch (err) {
     console.error('❌ Database query failed:', err);
     res.status(500).json({ error: 'Database query failed' });
   }
 });
+
 
 
 // Category-wise Mahals List:
