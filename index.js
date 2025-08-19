@@ -565,72 +565,72 @@ app.post('/api/payment-success', async (req, res) => {
 
 
 // Get Muhurtham Dates for a specific hall
-app.get('/api/muhurtham_dates_2025/:hallId', async (req, res) => {
-  try {
-    const { hallId } = req.params;
+// app.get('/api/muhurtham_dates_2025/:hallId', async (req, res) => {
+//   try {
+//     const { hallId } = req.params;
 
-    // ✅ Query is correct: fetches by hall_id and orders by date
-    const [rows] = await db.query(
-      `SELECT id, hall_id, date, description 
-       FROM muhurtham_dates_2025 
-       WHERE hall_id = ? 
-       ORDER BY date ASC`,
-      [hallId]
-    );
+//     // ✅ Query is correct: fetches by hall_id and orders by date
+//     const [rows] = await db.query(
+//       `SELECT id, hall_id, date, description 
+//        FROM muhurtham_dates_2025 
+//        WHERE hall_id = ? 
+//        ORDER BY date ASC`,
+//       [hallId]
+//     );
 
-    // ✅ Returns JSON response with results
-    res.json(rows);
-  } catch (error) {
-    console.error('Error fetching muhurtham dates:', error);
-    res.status(500).json({ message: 'Server error while fetching muhurtham dates' });
-  }
-});
+//     // ✅ Returns JSON response with results
+//     res.json(rows);
+//   } catch (error) {
+//     console.error('Error fetching muhurtham dates:', error);
+//     res.status(500).json({ message: 'Server error while fetching muhurtham dates' });
+//   }
+// });
 
 
-app.get('/api/muhurtham_dates_2025/:hallId', async (req, res) => {
-  try {
-    const { hallId } = req.params;
+// app.get('/api/muhurtham_dates_2025/:hallId', async (req, res) => {
+//   try {
+//     const { hallId } = req.params;
 
-    // 1️⃣ Fetch Muhurtham Dates
-    const [muhurthamRows] = await db.query(
-      `SELECT date, description 
-       FROM muhurtham_dates_2025 
-       WHERE hall_id = ? 
-       ORDER BY date ASC`,
-      [hallId]
-    );
+//     // 1️⃣ Fetch Muhurtham Dates
+//     const [muhurthamRows] = await db.query(
+//       `SELECT date, description 
+//        FROM muhurtham_dates_2025 
+//        WHERE hall_id = ? 
+//        ORDER BY date ASC`,
+//       [hallId]
+//     );
 
-    // 2️⃣ Fetch Booked Dates
-    const [bookedRows] = await db.query(
-      `SELECT dates AS date, status 
-       FROM bookings 
-       WHERE banquet_id = ? 
-       AND status = 'booked'
-       ORDER BY dates ASC`,
-      [hallId]
-    );
+//     // 2️⃣ Fetch Booked Dates
+//     const [bookedRows] = await db.query(
+//       `SELECT dates AS date, status 
+//        FROM bookings 
+//        WHERE banquet_id = ? 
+//        AND status = 'booked'
+//        ORDER BY dates ASC`,
+//       [hallId]
+//     );
 
-    // 3️⃣ Format response
-    const response = {
-      muhurthamDates: muhurthamRows.map(row => ({
-        date: row.date,
-        type: "muhurtham",
-        description: row.description
-      })),
-      bookedDates: bookedRows.map(row => ({
-        date: row.date,
-        type: "booked",
-        status: row.status
-      }))
-    };
+//     // 3️⃣ Format response
+//     const response = {
+//       muhurthamDates: muhurthamRows.map(row => ({
+//         date: row.date,
+//         type: "muhurtham",
+//         description: row.description
+//       })),
+//       bookedDates: bookedRows.map(row => ({
+//         date: row.date,
+//         type: "booked",
+//         status: row.status
+//       }))
+//     };
 
-    res.json(response);
+//     res.json(response);
 
-  } catch (error) {
-    console.error('Error fetching dates:', error);
-    res.status(500).json({ message: 'Server error while fetching dates' });
-  }
-});
+//   } catch (error) {
+//     console.error('Error fetching dates:', error);
+//     res.status(500).json({ message: 'Server error while fetching dates' });
+//   }
+// });
 
 
 
