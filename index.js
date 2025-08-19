@@ -516,35 +516,13 @@ app.post('/api/payment-success', async (req, res) => {
 
 
   // ✅ Booking Insert
-// Get a single banquet hall with images
-app.get('/api/banquet/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Hall details
-    const [hall] = await db.query(
-      `SELECT * FROM banquet_halls WHERE id = ?`,
-      [id]
-    );
-
-    if (!hall.length) {
-      return res.status(404).json({ message: "Hall not found" });
-    }
-
-    // Images
-    const [images] = await db.query(
-      `SELECT image_url FROM banquet_images WHERE banquet_hall_id = ?`,
-      [id]
-    );
-
-    // Attach images
-    hall[0].images = images.map(img => img.image_url);
-
-    res.json(hall[0]);
-  } catch (error) {
-    console.error("Error fetching banquet:", error);
-    res.status(500).json({ message: "Server error" });
-  }
+  app.get('/banquets/:id', (req, res) => {
+  const { id } = req.params;
+  db.query('SELECT * FROM banquet_halls WHERE id = ?', [id], (err, result) => {
+    if (err) return res.status(500).json({ error: err });
+    if (!result.length) return res.status(404).json({ error: 'Not found' });
+    res.json(result[0]);
+  });
 });
 
 
