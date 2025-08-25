@@ -522,34 +522,34 @@ app.get('/api/check-payment-status/:transactionId', async (req, res) => {
 });
 
 
-app.get("/api/muhurtham_dates_2025/:hallId", async (req, res) => {
-  try {
-    const { hallId } = req.params;
+  app.get("/api/muhurtham_dates_2025/:hallId", async (req, res) => {
+    try {
+      const { hallId } = req.params;
 
-    const [rows] = await db.promise().query(
-      "SELECT date, description FROM muhurtham_dates_2025 WHERE hall_id = ?",
-      [hallId]
-    );
+      const [rows] = await db.promise().query(
+        "SELECT date, description FROM muhurtham_dates_2025 WHERE hall_id = ?",
+        [hallId]
+      );
 
-    if (rows.length === 0) {
-      return res.json({ valarpirai: [], theipirai: [] });
+      if (rows.length === 0) {
+        return res.json({ valarpirai: [], theipirai: [] });
+      }
+
+      // Group dates by description
+      const valarpirai = rows
+        .filter(r => r.description && r.description.toLowerCase() === "valarpirai")
+        .map(r => r.date.toISOString().split("T")[0]); // format YYYY-MM-DD
+
+      const theipirai = rows
+        .filter(r => r.description && r.description.toLowerCase() === "theipirai")
+        .map(r => r.date.toISOString().split("T")[0]);
+
+      res.json({ valarpirai, theipirai });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Error fetching muhurtham dates" });
     }
-
-    // Group dates by description
-    const valarpirai = rows
-      .filter(r => r.description && r.description.toLowerCase() === "valarpirai")
-      .map(r => r.date.toISOString().split("T")[0]); // format YYYY-MM-DD
-
-    const theipirai = rows
-      .filter(r => r.description && r.description.toLowerCase() === "theipirai")
-      .map(r => r.date.toISOString().split("T")[0]);
-
-    res.json({ valarpirai, theipirai });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Error fetching muhurtham dates" });
-  }
-});
+  });
 
 
 
